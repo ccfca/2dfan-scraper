@@ -107,23 +107,21 @@
 </div>
 
 <div class="main">
-  <!-- 搜索/链接切换 -->
+    <!-- 站点选择 + 模式切换 -->
   <div class="section" style="padding:12px 16px;">
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
       <div class="mode-tabs" style="margin-bottom:0;" id="siteSelector">
         <div class="mode-tab active" onclick="switchSite('2dfan')" id="siteTab2dfan">📖 2DFan</div>
         <div class="mode-tab" onclick="switchSite('dlsite')" id="siteTabDlsite">🎮 DLSite</div>
       </div>
-      <div id="2dfanOnlyControls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
-        <div class="mode-tabs" style="margin-bottom:0;">
-          <div class="mode-tab active" onclick="switchGlobalMode('search')">🔍 搜索</div>
-          <div class="mode-tab" onclick="switchGlobalMode('direct')">🔗 链接</div>
-        </div>
-        <div class="toolbar" style="margin:0;">
-          <label class="toggle"><input type="radio" name="scrapeMode" value="imgbed" checked> 📸 自有图床</label>
-          <label class="toggle"><input type="radio" name="scrapeMode" value="imgbb"> 📸 imgbb</label>
-          <label class="toggle"><input type="radio" name="scrapeMode" value="text"> 📝 纯文本</label>
-        </div>
+      <div id="modeSelector" class="mode-tabs" style="margin-bottom:0;">
+        <div class="mode-tab active" id="modeTabSearch" onclick="switchGlobalMode('search')">🔍 搜索</div>
+        <div class="mode-tab" id="modeTabDirect" onclick="switchGlobalMode('direct')">🔗 链接</div>
+      </div>
+      <div id="scrapeOptions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:8px;">
+        <label class="toggle" style="margin:0;"><input type="radio" name="scrapeMode" value="imgbed" checked> 📸 自有图床</label>
+        <label class="toggle" style="margin:0;"><input type="radio" name="scrapeMode" value="imgbb"> 📸 imgbb</label>
+        <label class="toggle" style="margin:0;"><input type="radio" name="scrapeMode" value="text"> 📝 纯文本</label>
         <button class="small secondary" onclick="toggleCookie()" style="padding:4px 12px;font-size:11px;">🔑 Cookie</button>
       </div>
     </div>
@@ -256,12 +254,8 @@ function getScrapeMode() { return document.querySelector('input[name="scrapeMode
 
 // === 全局模式切换 ===
 function switchGlobalMode(mode) {
-  document.querySelectorAll('#2dfanOnlyControls .mode-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('#2dfanOnlyControls .mode-tab').forEach(t => {
-    if ((mode === 'search' && t.textContent.includes('搜索')) || (mode === 'direct' && t.textContent.includes('链接'))) {
-      t.classList.add('active');
-    }
-  });
+  document.getElementById('modeTabSearch').classList.toggle('active', mode === 'search');
+  document.getElementById('modeTabDirect').classList.toggle('active', mode === 'direct');
   document.getElementById('globalSearchPanel').style.display = mode === 'search' ? 'block' : 'none';
   document.getElementById('globalDirectPanel').style.display = mode === 'direct' ? 'block' : 'none';
 }
@@ -296,17 +290,19 @@ function switchSite(site) {
   const tab = document.getElementById(tabId);
   if (tab) tab.classList.add('active');
   
-  const df2Controls = document.getElementById('2dfanOnlyControls');
+  const modeSelector = document.getElementById('modeSelector');
   const directPanel = document.getElementById('globalDirectPanel');
   const searchInput = document.getElementById('searchInput');
   
   if (site === '2dfan') {
-    df2Controls.style.display = 'flex';
+    modeSelector.style.display = '';
     directPanel.style.display = 'none';
     document.getElementById('globalSearchPanel').style.display = 'block';
+    document.getElementById('modeTabSearch').classList.add('active');
+    document.getElementById('modeTabDirect').classList.remove('active');
     searchInput.placeholder = '输入游戏名称';
   } else if (site === 'dlsite') {
-    df2Controls.style.display = 'none';
+    modeSelector.style.display = 'none';
     directPanel.style.display = 'none';
     document.getElementById('globalSearchPanel').style.display = 'block';
     searchInput.placeholder = '输入游戏名称';
