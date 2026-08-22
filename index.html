@@ -173,19 +173,29 @@
   </div>
 
   <!-- 直接链接模式 -->
-  <div class="section" id="globalDirectPanel" style="display:none;">
-    <div class="section-title">📖 2DFan 游戏介绍</div>
-    <div class="row">
-      <input type="text" id="urlInput" placeholder="粘贴 2dfan 链接，如 https://fan2d.top/topics/20326" />
-      <button id="scrapeBtn" onclick="doScrape()">抓取</button>
+    <div class="section" id="globalDirectPanel" style="display:none;">
+    <div id="direct2dfan">
+      <div class="section-title">📖 2DFan 游戏介绍</div>
+      <div class="row">
+        <input type="text" id="urlInput" placeholder="粘贴 2dfan 链接，如 https://fan2d.top/topics/20326" />
+        <button id="scrapeBtn" onclick="doScrape()">抓取</button>
+      </div>
     </div>
-
-    <div class="section-title" style="margin-top:12px;">🖼️ galpic 图片追加</div>
-    <div class="row">
-      <input type="text" id="galpicInput" placeholder="粘贴 galpic 链接，如 https://www.galpic.xyz/show/gc1014496" />
-      <button class="secondary" id="galpicBtn" onclick="doGalpic()">追加图片</button>
+    <div id="directDlsite" style="display:none;">
+      <div class="section-title">🎮 DLSite 游戏介绍</div>
+      <div class="row">
+        <input type="text" id="dlsiteUrlInput" placeholder="粘贴 DLSite 链接，如 https://www.dlsite.com/pro/work/=/product_id/RJ01655136.html" />
+        <button id="dlsiteLinkBtn" onclick="doDlsiteLink()">抓取</button>
+      </div>
     </div>
-    <div class="hint">输入 galpic 链接（有无页码后缀均可），自动获取该组所有图片并追加到 HTML 末尾</div>
+    <div style="margin-top:12px;">
+      <div class="section-title">🖼️ galpic 图片追加</div>
+      <div class="row">
+        <input type="text" id="galpicInput" placeholder="粘贴 galpic 链接，如 https://www.galpic.xyz/show/gc1014496" />
+        <button class="secondary" id="galpicBtn" onclick="doGalpic()">追加图片</button>
+      </div>
+      <div class="hint">输入 galpic 链接（有无页码后缀均可），自动获取该组所有图片并追加到 HTML 末尾</div>
+    </div>
   </div>
 
   <div class="status" id="status"></div>
@@ -258,6 +268,8 @@ function switchGlobalMode(mode) {
   document.getElementById('modeTabDirect').classList.toggle('active', mode === 'direct');
   document.getElementById('globalSearchPanel').style.display = mode === 'search' ? 'block' : 'none';
   document.getElementById('globalDirectPanel').style.display = mode === 'direct' ? 'block' : 'none';
+  document.getElementById('direct2dfan').style.display = (mode === 'direct' && currentSite === '2dfan') ? '' : 'none';
+  document.getElementById('directDlsite').style.display = (mode === 'direct' && currentSite === 'dlsite') ? '' : 'none';
 }
 
 function toggleCookie() {
@@ -294,6 +306,10 @@ function switchSite(site) {
   const directPanel = document.getElementById('globalDirectPanel');
   const searchInput = document.getElementById('searchInput');
   
+  // Show/hide site-specific direct panels
+  document.getElementById('direct2dfan').style.display = site === '2dfan' ? '' : 'none';
+  document.getElementById('directDlsite').style.display = site === 'dlsite' ? '' : 'none';
+  
   if (site === '2dfan') {
     modeSelector.style.display = '';
     directPanel.style.display = 'none';
@@ -302,9 +318,11 @@ function switchSite(site) {
     document.getElementById('modeTabDirect').classList.remove('active');
     searchInput.placeholder = '输入游戏名称';
   } else if (site === 'dlsite') {
-    modeSelector.style.display = 'none';
+    modeSelector.style.display = '';
     directPanel.style.display = 'none';
     document.getElementById('globalSearchPanel').style.display = 'block';
+    document.getElementById('modeTabSearch').classList.add('active');
+    document.getElementById('modeTabDirect').classList.remove('active');
     searchInput.placeholder = '输入游戏名称';
   }
 }
@@ -446,6 +464,40 @@ async function scrapeDlsiteFromSearch(index) {
     } else { setStatus('抓取失败: ' + (data.error || '未知错误'), 'error'); }
   } catch (err) { setStatus('抓取失败: ' + err.message, 'error'); }
   if (btn) { btn.disabled = false; btn.textContent = '抓取'; }
+}
+
+// === DLSite 链接抓取 ===
+async function doDlsiteLink() {
+  const url = document.getElementById('dlsiteUrlInput').value.trim();
+  if (!url) { setStatus('请输入 DLSite 链接', 'error'); return; }
+  
+  // Extract product ID from URL
+  const pidMatch = url.match(/product_id\/([A-Z0-9]+)/i) || url.match(/([A-Z]{2}\d+)/i);
+  if (!pidMatch) { setStatus('无法从链接中提取产品ID', 'error'); return; }
+  const productId = pidMatch[1];
+  
+  const btn = document.getElementById('dlsiteLinkBtn');
+  btn.disabled = true;
+  btn.textContent = '抓取中...';
+  setStatus('正在抓取 DLSite 游戏信息...', '');
+  
+  try {
+    const resp = await fetch('/scrape-dlsite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId }) });
+    const data = await resp.json();
+    if (data && data.html) {
+      let html = data.html;
+      if (data.trialUrl || data.movieUrl) {
+        html += '<br>\n';
+        if (data.trialUrl) html += '<a href="' + data.trialUrl + '" target="_blank">📥 体验版下载' + (data.trialSize ? ' (' + data.trialSize + ')' : '') + '</a><br>\n';
+        if (data.movieUrl) html += '<a href="' + data.movieUrl + '" target="_blank">📥 宣传视频下载' + (data.movieSize ? ' (' + data.movieSize + ')' : '') + '</a><br>\n';
+      }
+      currentHtml = html;
+      showResult(html);
+      setStatus('✅ ' + (data.title || productId) + ' 抓取完成！', 'ok');
+    } else { setStatus('抓取失败: ' + (data.error || '未知错误'), 'error'); }
+  } catch (err) { setStatus('抓取失败: ' + err.message, 'error'); }
+  btn.disabled = false;
+  btn.textContent = '抓取';
 }
 
 
