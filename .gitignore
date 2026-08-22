@@ -1,0 +1,12 @@
+node_modules/
+.config/
+.npm-cache/
+images/
+output.json
+base64_output.txt
+*.mjs
+!server.mjs
+*.cjs
+*.b64
+*.txt
+!AGENTS.md

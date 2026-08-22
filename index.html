@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2DFan 游戏介绍抓取器</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; }
+  .header { background: linear-gradient(135deg, #16213e, #0f3460); padding: 20px 30px; border-bottom: 2px solid #e94560; }
+  .header h1 { font-size: 22px; color: #e94560; }
+  .header p { font-size: 13px; color: #888; margin-top: 4px; }
+  .main { flex: 1; display: flex; flex-direction: column; padding: 20px 30px; gap: 16px; max-width: 1200px; width: 100%; margin: 0 auto; }
+  .section { background: #16213e; border: 1px solid #333; border-radius: 10px; padding: 16px; }
+  .section-title { font-size: 14px; font-weight: bold; color: #e94560; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+  .mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .mode-tab {
+    padding: 8px 20px; font-size: 13px; font-weight: bold;
+    background: #0d1117; color: #888; border: 1px solid #333;
+    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+  }
+  .mode-tab.active { background: #e94560; color: #fff; border-color: #e94560; }
+  .mode-tab:hover:not(.active) { color: #ccc; border-color: #555; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row input {
+    flex: 1; padding: 10px 14px; font-size: 14px;
+    background: #0d1117; border: 1px solid #333; border-radius: 6px;
+    color: #fff; outline: none; transition: border-color 0.2s;
+  }
+  .row input:focus { border-color: #e94560; }
+  .row input::placeholder { color: #555; }
+  .hint { font-size: 11px; color: #555; margin-top: 4px; }
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888; }
+  .toggle input[type="checkbox"] { accent-color: #e94560; }
+  button {
+    padding: 10px 24px; font-size: 14px; font-weight: bold;
+    background: #e94560; color: #fff; border: none; border-radius: 8px;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  button:hover { background: #c73e54; transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { background: #555; cursor: not-allowed; transform: none; }
+  button.secondary { background: #0f3460; border: 1px solid #e94560; }
+  button.secondary:hover { background: #1a4a7a; }
+  button.small { padding: 6px 16px; font-size: 12px; }
+  .status { font-size: 13px; color: #888; min-height: 20px; }
+  .status.error { color: #e94560; }
+  .status.ok { color: #4ecdc4; }
+  .progress-bar { width: 100%; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-top: 8px; display: none; }
+  .progress-bar .fill { height: 100%; background: linear-gradient(90deg, #e94560, #4ecdc4); width: 0%; transition: width 0.3s; }
+  .progress-text { font-size: 12px; color: #aaa; margin-top: 4px; display: none; }
+  .mode-panel { display: none; }
+  .mode-panel.active { display: block; }
+  .search-results { margin-top: 12px; max-height: 400px; overflow-y: auto; }
+  .search-item {
+    display: flex; gap: 12px; padding: 10px; margin-bottom: 8px;
+    background: #0d1117; border: 1px solid #333; border-radius: 8px;
+    transition: all 0.2s; align-items: center;
+  }
+  .search-item:hover { border-color: #e94560; background: #1a1a2e; }
+  .search-item.no-intro { opacity: 0.6; }
+  .search-item img { width: 60px; height: 80px; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: #333; }
+  .search-item-info { flex: 1; min-width: 0; }
+  .search-item-title { font-size: 14px; font-weight: bold; color: #fff; margin-bottom: 4px; }
+  .search-item-meta { font-size: 12px; color: #888; }
+  .search-item-meta span { margin-right: 12px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 6px; }
+  .badge.ok { background: #4ecdc4; color: #000; }
+  .badge.none { background: #555; color: #aaa; }
+  .output-section { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 300px; }
+  .output-tabs { display: flex; gap: 4px; }
+  .tab {
+    padding: 8px 20px; font-size: 13px; font-weight: bold;
+    background: #16213e; color: #888; border: 1px solid #333;
+    border-radius: 8px 8px 0 0; cursor: pointer; border-bottom: none; transition: all 0.2s;
+  }
+  .tab.active { background: #0f3460; color: #e94560; border-color: #e94560; }
+  .tab:hover:not(.active) { color: #ccc; }
+  .output-wrap { flex: 1; border: 1px solid #333; border-radius: 0 8px 8px 8px; overflow: hidden; position: relative; }
+  .output-text, .output-preview {
+    width: 100%; height: 100%; min-height: 400px;
+    background: #0d1117; color: #c9d1d9; font-family: "Cascadia Code", "Consolas", monospace;
+    font-size: 13px; line-height: 1.6; border: none; outline: none; resize: none;
+  }
+  .output-text { padding: 16px; display: block; }
+  .output-preview { padding: 16px; overflow: auto; display: none; background: #fff; color: #333; }
+  .output-preview img { max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0; }
+  .output-preview a { color: #0969da; }
+  .output-preview h4 { color: #c73e54; margin: 16px 0 8px; }
+  .copy-btn {
+    position: absolute; top: 10px; padding: 6px 14px;
+    font-size: 12px; border-radius: 6px; z-index: 10; border: none; cursor: pointer;
+  }
+  .copy-btn.copy { right: 10px; background: rgba(233,69,96,0.8); color: #fff; }
+  .copy-btn.copy:hover { background: #e94560; }
+  .copy-btn.copy.copied { background: #4ecdc4; }
+  .copy-btn.clear { right: 90px; background: rgba(100,100,100,0.8); color: #fff; }
+  .copy-btn.clear:hover { background: #666; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎮 游戏信息抓取器</h1>
+  <p>支持 2DFan / DLSite / galpic，搜索或输入链接自动抓取内容</p>
+</div>
+
+<div class="main">
+  <!-- 搜索/链接切换 -->
+  <div class="section" style="padding:12px 16px;">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div class="mode-tabs" style="margin-bottom:0;" id="siteSelector">
+        <div class="mode-tab active" onclick="switchSite('2dfan')" id="siteTab2dfan">📖 2DFan</div>
+        <div class="mode-tab" onclick="switchSite('dlsite')" id="siteTabDlsite">🎮 DLSite</div>
+      </div>
+      <div id="2dfanOnlyControls" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+        <div class="mode-tabs" style="margin-bottom:0;">
+          <div class="mode-tab active" onclick="switchGlobalMode('search')">🔍 搜索</div>
+          <div class="mode-tab" onclick="switchGlobalMode('direct')">🔗 链接</div>
+        </div>
+        <div class="toolbar" style="margin:0;">
+          <label class="toggle"><input type="radio" name="scrapeMode" value="imgbed" checked> 📸 自有图床</label>
+          <label class="toggle"><input type="radio" name="scrapeMode" value="imgbb"> 📸 imgbb</label>
+          <label class="toggle"><input type="radio" name="scrapeMode" value="text"> 📝 纯文本</label>
+        </div>
+        <button class="small secondary" onclick="toggleCookie()" style="padding:4px 12px;font-size:11px;">🔑 Cookie</button>
+      </div>
+    </div>
+    <div id="cookiePanel" style="display:none;margin-top:8px;">
+      <div style="margin-bottom:8px;">
+        <button class="small secondary" onclick="open2dfanLogin()" style="margin-right:8px;">🔗 打开2dfan</button>
+        <button class="small secondary" onclick="verifyCookie()" style="margin-right:8px;">🔍 验证</button>
+        <span id="cookieStatus" style="font-size:11px;color:#888;">❌ 未登录</span>
+      </div>
+      <div class="row" style="flex-direction:column;gap:6px;">
+        <input type="text" id="cookieSession" value="" placeholder="_project_hgc_session" oninput="saveCookieToStorage()" style="font-size:11px;" />
+        <input type="text" id="cookieRemember" value="" placeholder="remember_me_token" oninput="saveCookieToStorage()" style="font-size:11px;" />
+      </div>
+      <div style="margin-top:6px;">
+        <details style="font-size:11px;color:#888;">
+          <summary style="cursor:pointer;color:#e94560;">📋 获取 Cookie 步骤</summary>
+          <div style="margin-top:6px;padding:10px;background:#0d1117;border-radius:6px;line-height:2;font-size:12px;">
+            <div style="color:#e94560;font-weight:bold;margin-bottom:4px;">⚠️ 登录后页面可能显示404，这是正常的，cookie 已经在浏览器里了</div>
+            <div>1. 点击「🔗 打开2dfan」→ 输入账号密码登录</div>
+            <div>2. 登录后（即使看到404也没关系），按 <code style="background:#333;padding:1px 6px;border-radius:3px;">F12</code> 打开开发者工具</div>
+            <div>3. 切到 <b style="color:#e94560;">Network</b> 标签 → 按 <code style="background:#333;padding:1px 6px;border-radius:3px;">F5</code> 刷新页面</div>
+            <div>4. 点击列表中<b>任意一个请求</b></div>
+            <div>5. 右侧找到 <b style="color:#e94560;">Request Headers</b> → 找到 <code style="background:#333;padding:1px 6px;border-radius:3px;">cookie:</code> 这一行</div>
+            <div>6. <b>双击选中</b> cookie: 后面的<b>整个值</b>（很长的一串），右键复制</div>
+            <div>7. 粘贴到上方输入框 → 自动保存 → 点「🔍 验证」确认</div>
+            <div style="margin-top:8px;color:#4ecdc4;">
+              <b>需要复制的 cookie 格式类似：</b><br>
+              <code style="font-size:10px;word-break:break-all;">上方两个输入框分别粘贴对应的值即可</code>
+            </div>
+          </div>
+        </details>
+      </div>
+      <div class="hint">Cookie 保存在浏览器本地，刷新页面不丢失</div>
+    </div>
+  </div>
+
+  <!-- 搜索模式 -->
+  <div class="section" id="globalSearchPanel">
+    <div class="row">
+      <input type="text" id="searchInput" placeholder="输入游戏名称" />
+      <button id="searchBtn" onclick="doSearch()">搜索</button>
+    </div>
+    <div class="toolbar">
+      <label class="toggle"><input type="checkbox" id="thumbToggle" checked onchange="toggleThumbs()"> 显示缩略图</label>
+    </div>
+    <div id="searchResults2dfan" style="margin-top:8px;"></div>
+    <div id="searchResultsDlsite" style="margin-top:8px;"></div>
+    <div id="searchResultsgalpic" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- 直接链接模式 -->
+  <div class="section" id="globalDirectPanel" style="display:none;">
+    <div class="section-title">📖 2DFan 游戏介绍</div>
+    <div class="row">
+      <input type="text" id="urlInput" placeholder="粘贴 2dfan 链接，如 https://fan2d.top/topics/20326" />
+      <button id="scrapeBtn" onclick="doScrape()">抓取</button>
+    </div>
+
+    <div class="section-title" style="margin-top:12px;">🖼️ galpic 图片追加</div>
+    <div class="row">
+      <input type="text" id="galpicInput" placeholder="粘贴 galpic 链接，如 https://www.galpic.xyz/show/gc1014496" />
+      <button class="secondary" id="galpicBtn" onclick="doGalpic()">追加图片</button>
+    </div>
+    <div class="hint">输入 galpic 链接（有无页码后缀均可），自动获取该组所有图片并追加到 HTML 末尾</div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+  <div class="progress-text" id="progressText"></div>
+  <div id="uploadStats" style="font-size:12px;color:#666;display:none;">
+    <span id="statsUploadCount">已上传: 0 张</span> &nbsp;|&nbsp;
+    <span id="statsImgbedCount">图床: 0 张</span> &nbsp;|&nbsp;
+    <span id="statsImgbbCount">imgbb: 0 张</span> &nbsp;|&nbsp;
+    <span id="statsTime">耗时: 0秒</span>
+  </div>
+
+  <!-- 输出区域 -->
+  <div class="output-section">
+    <div class="output-tabs">
+      <div class="tab active" id="tabCode" onclick="switchTab('code')">HTML 源码</div>
+      <div class="tab" id="tabPreview" onclick="switchTab('preview')">预览</div>
+    </div>
+    <div class="output-wrap">
+      <button class="copy-btn copy" id="copyBtn" onclick="copyResult()">📋 复制</button>
+      <button class="copy-btn clear" id="clearBtn" onclick="clearResult()">🗑️ 清空</button>
+      <textarea class="output-text" id="outputCode" readonly placeholder="抓取结果将显示在这里..."></textarea>
+      <div class="output-preview" id="outputPreview"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const IMGBB_KEY = '414c98e59d5a6abfc3d9756d31d7e76a';
+const IMGBED_URL = 'https://17324728.my-imgbed-bs8.pages.dev';
+const IMGBED_KEY = 'imgbed_f4415a36e06fd880ea32174be9d583311c6703b871b0be9bc232ab124fca5b54';
+let currentHtml = '';
+let statsImgbed = 0, statsImgbb = 0, statsStart = 0;
+function updateStats() {
+  const el = document.getElementById('uploadStats');
+  if (!el) return;
+  el.style.display = statsImgbed + statsImgbb > 0 ? 'block' : 'none';
+  document.getElementById('statsUploadCount').textContent = `已上传: ${statsImgbed + statsImgbb} 张`;
+  document.getElementById('statsImgbedCount').textContent = `图床: ${statsImgbed} 张`;
+  document.getElementById('statsImgbbCount').textContent = `imgbb: ${statsImgbb} 张`;
+  const elapsed = statsStart ? Math.round((Date.now() - statsStart) / 1000) : 0;
+  document.getElementById('statsTime').textContent = `耗时: ${elapsed}秒`;
+}
+let searchResultsCache = [];
+let thumbBase64Cache = {};
+
+function setProgress(pct, text) {
+  document.getElementById('progressBar').style.display = pct > 0 ? 'block' : 'none';
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').style.display = text ? 'block' : 'none';
+  document.getElementById('progressText').textContent = text || '';
+}
+
+function setStatus(msg, type) {
+  document.getElementById('status').innerHTML = msg;
+  document.getElementById('status').className = 'status' + (type ? ' ' + type : '');
+}
+
+function getCookie() { const s = document.getElementById('cookieSession').value.trim(); const r = document.getElementById('cookieRemember').value.trim(); const parts = []; if (s) parts.push('_project_hgc_session=' + s); if (r) parts.push('remember_me_token=' + r); return parts.join('; '); }
+function saveCookieToStorage() { localStorage.setItem('2dfan_session', document.getElementById('cookieSession').value.trim()); localStorage.setItem('2dfan_remember', document.getElementById('cookieRemember').value.trim()); updateCookieStatus(); }
+function loadCookieFromStorage() { const s = localStorage.getItem('2dfan_session'); const r = localStorage.getItem('2dfan_remember'); if (s) document.getElementById('cookieSession').value = s; if (r) document.getElementById('cookieRemember').value = r; updateCookieStatus(); }
+function updateCookieStatus() { const el = document.getElementById('cookieStatus'); if (!el) return; const s = document.getElementById('cookieSession').value.trim(); const r = document.getElementById('cookieRemember').value.trim(); el.textContent = (s || r) ? '✅ 已保存' : '❌ 未登录'; el.style.color = (s || r) ? '#4ecdc4' : '#888'; }
+function open2dfanLogin() { window.open('https://fan2d.top/', '_blank'); }
+async function verifyCookie() { const cookie = getCookie(); if (!cookie) { updateCookieStatus(); setStatus('请先粘贴 Cookie', 'error'); return; } setStatus('正在验证 Cookie...', ''); try { const resp = await fetch('/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword: 'test', cookie }) }); const data = await resp.json(); if (data.results && data.results.length > 0) { setStatus('✅ Cookie 有效！搜索结果会显示介绍信息', 'ok'); updateCookieStatus(); } else { setStatus('❌ Cookie 无效或已过期，请重新获取', 'error'); } } catch (e) { setStatus('验证失败: ' + e.message, 'error'); } }
+function getScrapeMode() { return document.querySelector('input[name="scrapeMode"]:checked').value; }
+
+// === 全局模式切换 ===
+function switchGlobalMode(mode) {
+  document.querySelectorAll('#2dfanOnlyControls .mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#2dfanOnlyControls .mode-tab').forEach(t => {
+    if ((mode === 'search' && t.textContent.includes('搜索')) || (mode === 'direct' && t.textContent.includes('链接'))) {
+      t.classList.add('active');
+    }
+  });
+  document.getElementById('globalSearchPanel').style.display = mode === 'search' ? 'block' : 'none';
+  document.getElementById('globalDirectPanel').style.display = mode === 'direct' ? 'block' : 'none';
+}
+
+function toggleCookie() {
+  const panel = document.getElementById('cookiePanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// === 缩略图切换 ===
+function toggleThumbs() {
+  const show = document.getElementById('thumbToggle').checked;
+  document.querySelectorAll('.search-item img').forEach(img => {
+    if (show && thumbBase64Cache[img.dataset.url]) {
+      img.src = thumbBase64Cache[img.dataset.url];
+    } else if (!show) {
+      img.style.display = 'none';
+    } else {
+      img.style.display = '';
+    }
+  });
+}
+
+
+// === 站点切换 ===
+let currentSite = '2dfan';
+
+function switchSite(site) {
+  currentSite = site;
+  document.querySelectorAll('#siteSelector .mode-tab').forEach(t => t.classList.remove('active'));
+  const tabId = 'siteTab' + site.charAt(0).toUpperCase() + site.slice(1);
+  const tab = document.getElementById(tabId);
+  if (tab) tab.classList.add('active');
+  
+  const df2Controls = document.getElementById('2dfanOnlyControls');
+  const directPanel = document.getElementById('globalDirectPanel');
+  const searchInput = document.getElementById('searchInput');
+  
+  if (site === '2dfan') {
+    df2Controls.style.display = 'flex';
+    directPanel.style.display = 'none';
+    document.getElementById('globalSearchPanel').style.display = 'block';
+    searchInput.placeholder = '输入游戏名称';
+  } else if (site === 'dlsite') {
+    df2Controls.style.display = 'none';
+    directPanel.style.display = 'none';
+    document.getElementById('globalSearchPanel').style.display = 'block';
+    searchInput.placeholder = '输入游戏名称';
+  }
+}
+
+// === DLSite 搜索 ===
+let searchResultsCacheDlsite = [];
+
+let searchResultsCache2dfan = [];
+let searchResultsCacheGalpic = [];
+
+async function doSearch() {
+  const keyword = document.getElementById('searchInput').value.trim();
+  if (!keyword) { setStatus('请输入游戏名称', 'error'); return; }
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.textContent = '搜索中...';
+
+  // 主站点 + galpic 同时搜索
+  const sitePromise = currentSite === '2dfan'
+    ? fetch('/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword, cookie: getCookie() }) }).then(r => r.json())
+    : fetch('/search-dlsite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword }) }).then(r => r.json());
+
+  const galpicPromise = fetch('/search-galpic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword }) }).then(r => r.json());
+
+  const [siteResult, galpicResult] = await Promise.allSettled([sitePromise, galpicPromise]);
+
+  // 渲染主站点结果
+  if (currentSite === '2dfan') {
+    render2dfanResults(siteResult);
+  } else {
+    renderDlsiteResults(siteResult);
+  }
+
+  // 渲染 galpic 结果
+  renderGalpicResults(galpicResult);
+
+  btn.disabled = false;
+  btn.textContent = '搜索';
+}
+
+async function scrapeFromSearch2dfan(index) {
+  const r = searchResultsCache2dfan[index];
+  if (!r || !r.topicUrl) { setStatus('该游戏没有介绍页面', 'error'); return; }
+  const fullUrl = 'https://fan2d.top' + r.topicUrl;
+  document.getElementById('urlInput').value = fullUrl;
+  await doScrape();
+}
+
+// === 2DFan 结果渲染 ===
+function render2dfanResults(settled) {
+  const container = document.getElementById('searchResults2dfan');
+  document.getElementById('searchResultsDlsite').innerHTML = '';
+  const results = (settled.status === 'fulfilled') ? (settled.value.results || []) : [];
+  searchResultsCache2dfan = results;
+  if (results.length > 0) {
+    container.innerHTML = '<div style="font-size:13px;font-weight:bold;color:#e94560;margin-bottom:6px;">📖 2DFan (' + results.length + ')</div>' +
+      results.map((r, i) => '<div class="search-item ' + (r.hasIntro ? '' : 'no-intro') + '" id="sitem2-' + i + '">' +
+        '<img src="https://img.achost.top/package_thumb.jpg" data-url="' + (r.thumbnail || '') + '" style="' + (document.getElementById('thumbToggle').checked ? '' : 'display:none') + '" />' +
+        '<div class="search-item-info"><div class="search-item-title">' +
+        '<a href="https://fan2d.top/subjects/' + r.subjectId + '" target="_blank" style="color:#fff;text-decoration:none;font-weight:bold;">' + r.title + '</a>' +
+        '<span class="badge ' + (r.hasIntro ? 'ok' : 'none') + '">' + (r.hasIntro ? '有介绍' : '无介绍') + '</span></div>' +
+        '<div class="search-item-meta">' + (r.brand ? '<span>品牌：' + r.brand + '</span>' : '') + (r.releaseDate ? '<span>发售：' + r.releaseDate + '</span>' : '') + '</div></div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">' +
+        (r.hasDownloads ? '<a href="https://fan2d.top/subjects/' + r.subjectId + '/downloads" target="_blank" class="small secondary" style="text-decoration:none;">📦 下载</a>' : '') +
+        (r.hasIntro ? '<button class="small secondary" onclick="scrapeFromSearch2dfan(' + i + ')">抓取</button>' : '') +
+        '</div></div>').join('');
+    if (document.getElementById('thumbToggle').checked) {
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (r.thumbnail && !thumbBase64Cache[r.thumbnail]) {
+          fetch('/proxy-image-json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: r.thumbnail, cookie: getCookie() }) })
+            .then(res => res.json()).then(d => { if (d.ok) { thumbBase64Cache[r.thumbnail] = 'data:' + d.mime + ';base64,' + d.base64; const img = document.querySelector('#sitem2-' + i + ' img'); if (img) { img.src = thumbBase64Cache[r.thumbnail]; img.style.display = ''; } } }).catch(() => {});
+        }
+      }
+    }
+  } else {
+    container.innerHTML = '<div style="color:#666;font-size:12px;">2DFan: 未找到结果</div>';
+  }
+}
+
+// === DLSite 结果渲染 ===
+function renderDlsiteResults(settled) {
+  const container = document.getElementById('searchResultsDlsite');
+  document.getElementById('searchResults2dfan').innerHTML = '';
+  const results = (settled.status === 'fulfilled') ? (settled.value.results || []) : [];
+  searchResultsCacheDlsite = results;
+  if (results.length > 0) {
+    container.innerHTML = '<div style="font-size:13px;font-weight:bold;color:#e94560;margin-bottom:6px;">🎮 DLSite (' + results.length + ')</div>' +
+      results.map((r, i) => '<div class="search-item" id="sitem-dl-' + i + '">' +
+        '<div class="search-item-info" style="flex:1"><div class="search-item-title">' +
+        '<a href="' + r.url + '" target="_blank" style="color:#fff;text-decoration:none;font-weight:bold;">' + r.title + '</a></div>' +
+        '<div class="search-item-meta"><span>ID: ' + r.productId + '</span></div></div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0;"><button class="small secondary" onclick="scrapeDlsiteFromSearch(' + i + ')">抓取</button></div></div>').join('');
+  } else {
+    container.innerHTML = '<div style="color:#666;font-size:12px;">DLSite: 未找到结果</div>';
+  }
+}
+
+// === galpic 结果渲染 ===
+function renderGalpicResults(settled) {
+  const container = document.getElementById('searchResultsgalpic');
+  const results = (settled.status === 'fulfilled') ? (settled.value.results || []) : [];
+  searchResultsCacheGalpic = results;
+  if (results.length > 0) {
+    container.innerHTML = '<div style="font-size:13px;font-weight:bold;color:#4ecdc4;margin-bottom:6px;">🖼️ galpic (' + results.length + ')</div>' +
+      results.map(r => '<div class="search-item ' + (r.imageCount === 0 ? 'no-intro' : '') + '">' +
+        '<div class="search-item-info" style="flex:1"><div class="search-item-title">' + r.title + '</div>' +
+        '<div class="search-item-meta"><span>GID: ' + r.gid + '</span><span>📦 ' + r.resourceCount + '</span><span>🖼️ ' + r.imageCount + '</span></div></div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0;">' +
+        (r.resourceCount > 0 ? '<a class="small secondary" href="' + r.resourceUrl + '" target="_blank" style="text-decoration:none;">📦 资源</a>' : '') +
+        (r.imageCount > 0 ? "<button class=\"small secondary\" onclick=\"appendGalpic('" + r.gid + "', " + r.imageCount + ")\">🖼️ 追加</button>" : '') +
+        '</div></div>').join('');
+  } else {
+    container.innerHTML = '<div style="color:#666;font-size:12px;">galpic: 未找到结果</div>';
+  }
+}
+
+// === DLSite 抓取 ===
+async function scrapeDlsiteFromSearch(index) {
+  const r = searchResultsCacheDlsite[index];
+  if (!r) return;
+  setStatus('正在抓取 DLSite 游戏信息...', '');
+  const btn = document.querySelector('#sitem-dl-' + index + ' button');
+  if (btn) { btn.disabled = true; btn.textContent = '抓取中...'; }
+  try {
+    const resp = await fetch('/scrape-dlsite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: r.productId }) });
+    const data = await resp.json();
+    if (data && data.html) {
+      let html = data.html;
+      if (data.trialUrl || data.movieUrl) {
+        html += '<br>\n';
+        if (data.trialUrl) html += '<a href="' + data.trialUrl + '" target="_blank">📥 体验版下载' + (data.trialSize ? ' (' + data.trialSize + ')' : '') + '</a><br>\n';
+        if (data.movieUrl) html += '<a href="' + data.movieUrl + '" target="_blank">📥 宣传视频下载' + (data.movieSize ? ' (' + data.movieSize + ')' : '') + '</a><br>\n';
+      }
+      currentHtml = html;
+      showResult(html);
+      setStatus('✅ ' + r.title + ' 抓取完成！描述已翻译为中文', 'ok');
+    } else { setStatus('抓取失败: ' + (data.error || '未知错误'), 'error'); }
+  } catch (err) { setStatus('抓取失败: ' + err.message, 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = '抓取'; }
+}
+
+
+
+
+
+// === 图片上传 ===
+async function uploadToImgBed(base64Data, mime) {
+  const resp = await fetch('/upload-imgbed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64: base64Data, mime: mime }),
+  });
+  const result = await resp.json();
+  if (result && result.url) return result.url;
+  console.error('imgbed upload failed:', result.error);
+  return null;
+}
+
+async function uploadToImgbb(base64Data) {
+  const formData = new FormData();
+  formData.append('key', IMGBB_KEY);
+  formData.append('image', base64Data);
+  formData.append('expiration', '0');
+  const resp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+  const result = await resp.json();
+  return result.success ? result.data.url : null;
+}
+
+// === 2dfan 抓取 ===
+async function doScrape() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { setStatus('请输入链接', 'error'); return; }
+  if (!url.includes('fan2d.top')) { setStatus('请输入有效的 2dfan 链接', 'error'); return; }
+
+  const cookie = getCookie();
+  const mode = getScrapeMode();
+  const btn = document.getElementById('scrapeBtn') || document.querySelector('#modeDirect button');
+  if (btn) { btn.disabled = true; btn.textContent = '抓取中...'; }
+
+  try {
+    setStatus('正在抓取页面内容...', '');
+    setProgress(10, '抓取页面...');
+    const resp = await fetch('/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, cookie }),
+    });
+    const data = await resp.json();
+    if (data.error) { setStatus('错误: ' + data.error, 'error'); return; }
+
+    let html = data.html;
+
+    if (mode === 'text') {
+      // 纯文本模式：移除所有 img 标签
+      html = html.replace(/<img[^>]*>/g, '');
+      currentHtml = html;
+      showResult(html);
+      setProgress(100, '完成！');
+      setStatus('抓取完成！（纯文本模式，未上传图片）', 'ok');
+      return;
+    }
+
+    // 图床模式
+    setProgress(30, '页面抓取完成，准备上传图片...');
+    const imgRegex = /<img[^>]+src="(https?:\/\/img\.achost\.top[^"]+)"/g;
+    const imgUrls = [];
+    let m;
+    while ((m = imgRegex.exec(html)) !== null) imgUrls.push(m[1]);
+
+    if (imgUrls.length === 0) {
+      currentHtml = html;
+      showResult(html);
+      setStatus('抓取完成！（无图片）', 'ok');
+      return;
+    }
+
+    const uploadTarget = mode === "imgbed" ? "自有图床" : "imgbb";
+    const total = imgUrls.length;
+    // 限速：imgbed 模式每张间隔 0.5 秒，每累计 20 张等待 10 秒
+    const uploadDelay = mode === 'imgbed' ? 500 : 0;
+    const batchWait = mode === 'imgbed' ? 10000 : 0;
+    const batch_size = 20;
+    const batches = Math.ceil(total / batch_size);
+    const estimatedTime = mode === 'imgbed' ? Math.ceil(total * 0.5 + (batches - 1) * 10) : 0;
+    const timeHint = estimatedTime > 0 ? `（预计 ${Math.ceil(estimatedTime/60)} 分钟）` : '';
+    statsImgbed = 0; statsImgbb = 0; statsStart = Date.now();
+    updateStats();
+    setStatus(`正在上传 ${total} 张图片到 ${uploadTarget}${timeHint}...`, '');
+    let uploaded = 0, failed = 0;
+
+    for (const imgUrl of imgUrls) {
+      uploaded++;
+      // 每累计 20 张等待 10 秒（除了第一批的第一张和最后一批的最后一张）
+      if (mode === 'imgbed' && uploaded > 1 && (uploaded - 1) % batch_size === 0) {
+        setStatus(`已上传 ${uploaded} 张，等待 10 秒后继续...`, '');
+        setProgress(30 + Math.round((uploaded / total) * 65), `已上传 ${uploaded}/${total}，冷却中...`);
+        await new Promise(r => setTimeout(r, batchWait));
+      }
+      const remainSec = mode === 'imgbed' ? Math.ceil((total - uploaded) * 0.5 + Math.floor((total - uploaded) / batch_size) * 10) : 0;
+      const remainHint = remainSec > 0 ? ` 剩余约 ${Math.ceil(remainSec/60)} 分钟` : '';
+      setProgress(30 + Math.round((uploaded / total) * 65), `上传 ${uploaded}/${total}${remainHint}`);
+      try {
+        const imgResp = await fetch('/proxy-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: imgUrl, cookie }),
+        });
+        const imgBuffer = await imgResp.arrayBuffer();
+        if (imgResp.ok && imgBuffer.byteLength > 0) {
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = '';
+          for (let b = 0; b < bytes.byteLength; b++) binary += String.fromCharCode(bytes[b]);
+          const base64Data = btoa(binary);
+          const mime = imgResp.headers.get('content-type') || 'image/png';
+          let newUrl = null;
+          let retries = 0;
+          const maxRetries = 2;
+          while (retries <= maxRetries) {
+            try {
+              if (mode === 'imgbed') {
+                newUrl = await uploadToImgBed(base64Data, mime);
+              } else {
+                newUrl = await uploadToImgbb(base64Data);
+              }
+              if (newUrl) break;
+            } catch (e) {}
+            retries++;
+            if (retries <= maxRetries) {
+              setStatus(`上传失败，${retries}秒后重试... (${uploaded}/${total})`, 'error');
+              await new Promise(r => setTimeout(r, retries * 2000));
+            }
+          }
+          if (newUrl) {
+            if (mode === 'imgbed') statsImgbed++; else statsImgbb++;
+            updateStats();
+            const escaped = imgUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            html = html.replace(new RegExp(`src="${escaped}"`, 'g'), `src="${newUrl}"`);
+          } else {
+            failed++;
+            setStatus(`第 ${uploaded} 张上传失败，跳过 (${uploaded}/${total})`, 'error');
+          }
+        } else { failed++; }
+      } catch (e) { failed++; }
+      // 限速延迟（每张之间）
+      if (uploadDelay > 0 && uploaded < total) {
+        await new Promise(r => setTimeout(r, uploadDelay));
+      }
+    }
+
+    setProgress(100, '完成！');
+    currentHtml = html;
+    showResult(html);
+    const finalTime = Math.round((Date.now() - statsStart) / 1000);
+    const msg = failed > 0
+      ? `抓取完成！${total - failed}/${total} 张图片上传成功，${failed} 张失败，耗时 ${finalTime}秒`
+      : `抓取完成！${total} 张图片全部上传成功，耗时 ${finalTime}秒`;
+    setStatus(msg, 'ok');
+    updateStats();
+  } catch (err) {
+    setStatus('请求失败: ' + err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '抓取'; }
+    setTimeout(() => setProgress(0, ''), 2000);
+  }
+}
+
+
+
+
+
+async function appendGalpic(gid, imageCount) {
+  const url = 'https://www.galpic.xyz/show/' + gid;
+  setStatus(`正在追加 ${gid} (${imageCount}张图片)...`, '');
+  try {
+    const resp = await fetch('/scrape-galpic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await resp.json();
+    if (data.error) { setStatus('错误: ' + data.error, 'error'); return; }
+    currentHtml = (currentHtml || '') + data.html;
+    showResult(currentHtml);
+    setStatus(`${gid} 的 ${imageCount} 张图片已追加到末尾！`, 'ok');
+  } catch (err) {
+    setStatus('请求失败: ' + err.message, 'error');
+  }
+}
+
+// === galpic 直接追加 ===
+async function doGalpic() {
+  const url = document.getElementById('galpicInput').value.trim();
+  if (!url) { setStatus('请输入 galpic 链接', 'error'); return; }
+  if (!url.includes('ggbase.xyz') && !url.includes('galpic.xyz')) { setStatus('请输入有效的 galpic 链接', 'error'); return; }
+
+  const btn = document.getElementById('galpicBtn');
+  btn.disabled = true;
+  btn.textContent = '抓取中...';
+
+  try {
+    setStatus('正在获取 galpic 图片链接...', '');
+    const resp = await fetch('/scrape-galpic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const data = await resp.json();
+    if (data.error) { setStatus('错误: ' + data.error, 'error'); return; }
+
+    currentHtml = (currentHtml || '') + data.html;
+    showResult(currentHtml);
+    setStatus('galpic 图片已追加到末尾！', 'ok');
+  } catch (err) {
+    setStatus('请求失败: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '追加图片';
+  }
+}
+
+// === 通用 ===
+function showResult(html) {
+  document.getElementById('outputCode').value = html;
+  document.getElementById('outputPreview').innerHTML = html;
+}
+
+function switchTab(tab) {
+  document.getElementById('tabCode').classList.toggle('active', tab === 'code');
+  document.getElementById('tabPreview').classList.toggle('active', tab === 'preview');
+  document.getElementById('outputCode').style.display = tab === 'code' ? 'block' : 'none';
+  document.getElementById('outputPreview').style.display = tab === 'preview' ? 'block' : 'none';
+}
+
+function copyResult() {
+  if (!currentHtml) return;
+  navigator.clipboard.writeText(currentHtml).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '✅ 已复制'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 复制'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function clearResult() {
+  currentHtml = '';
+  document.getElementById('outputCode').value = '';
+  document.getElementById('outputPreview').innerHTML = '';
+  setStatus('已清空', '');
+}
+window.addEventListener('DOMContentLoaded', loadCookieFromStorage);</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

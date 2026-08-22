@@ -1,0 +1,1 @@
+{"name":"2dfan-scraper","version":"1.0.0","description":"Scrape game introductions from 2dfan.top","type":"module","dependencies":{"google-translate-api":"^2.3.0"}}
