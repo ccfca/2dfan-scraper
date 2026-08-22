@@ -104,13 +104,24 @@ async function searchGalpic(keyword) {
   }
   console.error('[galpic] found ' + results.length);
   return results;
-}async function fetchDlsite(path) {
+}async function fetchDlsite(path, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
     const req = http.request({ hostname: '127.0.0.1', port: DLSITE_PROXY_PORT, method: 'CONNECT', path: 'www.dlsite.com:443' });
     req.on('connect', (res, socket) => {
       if (res.statusCode !== 200) { reject(new Error('Proxy CONNECT failed')); return; }
       const agent = new https.Agent({ socket, servername: 'www.dlsite.com', rejectUnauthorized: false });
-      https.get({ host: 'www.dlsite.com', path, agent, headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'ja,en;q=0.9' } }, (resp) => {
+      https.get({ host: 'www.dlsite.com', path, agent, headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'ja,en;q=0.9',
+        'Accept-Encoding': 'identity'
+      } }, (resp) => {
+        if ((resp.statusCode === 301 || resp.statusCode === 302) && resp.headers.location && maxRedirects > 0) {
+          const loc = resp.headers.location;
+          const urlObj = new URL(loc);
+          fetchDlsite(urlObj.pathname + urlObj.search, maxRedirects - 1).then(resolve).catch(reject);
+          return;
+        }
         let data = '';
         resp.on('data', c => data += c);
         resp.on('end', () => resolve(data));
@@ -178,7 +189,7 @@ async function searchDlsite(keyword) {
   const coverMatch = html.match(/(\/\/img\.dlsite\.jp\/[^"]*_img_main\.jpg)/);
   const coverImage = coverMatch ? 'https:' + coverMatch[1] : '';
   const sampleImages = [];
-  const samplePattern = /\/\/img\.dlsite\.jp\/[^"]*_img_smp[a-z]+\d+\.jpg/g;
+  const samplePattern = /\/\/img\.dlsite\.jp\/[^"]*_img_smp[a-z]*\d+\.jpg/g;
   let sm;
   while ((sm = samplePattern.exec(html)) !== null) { const url = 'https:' + sm[0]; if (!sampleImages.includes(url)) sampleImages.push(url); }
   const trialMatch = html.match(/href="(\/\/trial\.dlsite\.com[^"]*trial\.zip)"/);
@@ -469,7 +480,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (req.url === '/scrape-dlsite') {
-        const data = await scrapeDlsite(body.url);
+        const data = await scrapeDlsite(body.productId || body.url);
         return jsonResponse(res, data);
       }
 
